@@ -409,9 +409,14 @@ option(ENABLE_STREFLOP "build Spring with streflop support (REQUIRED FOR MULTIPL
 
 if (ENABLE_STREFLOP)
 ## note: is removed in ./AI/CMakeLists.txt since it would break AI compilation
-add_definitions(-DSTREFLOP_SSE)
+	# ARM64 doesn't support SSE, so we need to handle this differently
+	if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+		add_definitions(-DSTREFLOP_SOFT)
+	else()
+		add_definitions(-DSTREFLOP_SSE)
+	endif()
 else ()
-add_definitions(-DNOT_USING_STREFLOP)
+	add_definitions(-DNOT_USING_STREFLOP)
 endif ()
 
 ### Asio
@@ -433,30 +438,46 @@ if (CMAKE_COMPILER_IS_GNUCXX)
 	endif (MARCH_FLAG STREQUAL "")
 
 	if (NOT MARCH_FLAG STREQUAL "generic")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${MARCH_FLAG} -mtune=${MARCH_FLAG}") #march/mtune define SSE flags
+		# Handle ARM64 architecture differently
+		if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=${MARCH_FLAG}")
+		else()
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${MARCH_FLAG} -mtune=${MARCH_FLAG}") #march/mtune define SSE flags
+		endif()
 	else (NOT MARCH_FLAG STREQUAL "generic")
-		set(FALLBACK_SSE_FLAGS "-msse")
-		#set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mmmx")
+		# Handle ARM64 vs x86 architecture
+		if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+			# ARM64 specific flags
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=generic")
+		else()
+			# x86/x86_64 specific flags
+			set(FALLBACK_SSE_FLAGS "-msse")
+			#set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mmmx")
 
-		# worth to test if sync
-		#set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mpopcnt -mlzcnt -mabm")
+			# worth to test if sync
+			#set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mpopcnt -mlzcnt -mabm")
 
-		# disable rest
-		#set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-3dnow") tests showed it might sync
-		set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-sse4 -mno-sse4a")
-		set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-avx -mno-fma -mno-fma4 -mno-xop -mno-lwp")
-		set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-avx2")
+			# disable rest
+			#set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-3dnow") tests showed it might sync
+			set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-sse4 -mno-sse4a")
+			set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-avx -mno-fma -mno-fma4 -mno-xop -mno-lwp")
+			set(FALLBACK_SSE_FLAGS "${FALLBACK_SSE_FLAGS} -mno-avx2")
 
-		if (MARCH_BITS EQUAL 64)
-			set(FALLBACK_MARCH "x86-64")
-		else (MARCH_BITS EQUAL 64)
-			set(FALLBACK_MARCH "i686")
-		endif (MARCH_BITS EQUAL 64)
+			if (MARCH_BITS EQUAL 64)
+				set(FALLBACK_MARCH "x86-64")
+			else (MARCH_BITS EQUAL 64)
+				set(FALLBACK_MARCH "i686")
+			endif (MARCH_BITS EQUAL 64)
 
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${FALLBACK_MARCH} -mtune=generic ${FALLBACK_SSE_FLAGS}")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=${FALLBACK_MARCH} -mtune=generic ${FALLBACK_SSE_FLAGS}")
+			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -mfpmath=sse") #SSE_FLAGS are now user input only
+		endif()
 	endif (NOT MARCH_FLAG STREQUAL "generic")
 
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -mfpmath=sse") #SSE_FLAGS are now user input only
+	# Only add SSE flags for x86/x86_64 architectures
+	if (NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64"))
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS} -mfpmath=sse") #SSE_FLAGS are now user input only
+	endif()
 elseif (MSVC)
 	set(MSVC_CXX_FLAGS "/arch:SSE2") #default, but still set explicitly
 	# silence warnings

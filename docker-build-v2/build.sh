@@ -10,7 +10,7 @@ if [[ $(id -u) -eq 0 ]]; then
   echo "See official docs: https://docs.docker.com/engine/install/linux-postinstall/"
 fi
 
-USAGE="Usage: $0 [--help] [--configure|--compile] [-j|--jobs {number_of_jobs}] {windows|linux} [cmake_flag...]"
+USAGE="Usage: $0 [--help] [--configure|--compile] [-j|--jobs {number_of_jobs}] {windows|linux|arm64-linux} [cmake_flag...]"
 export CONFIGURE=true
 export COMPILE=true
 export CMAKE_BUILD_PARALLEL_LEVEL=
@@ -46,7 +46,7 @@ while (( $# > 0 )); do
       CMAKE_BUILD_PARALLEL_LEVEL="$1"
       shift
       ;;
-    windows|linux)
+    windows|linux|arm64-linux)
       OS="$1"
       shift
       break
@@ -64,10 +64,18 @@ cd "$(dirname "$(readlink -f "$0")")/.."
 mkdir -p build-$OS .cache/ccache-$OS
 
 # Use locally build image if available, and pull from upstream if not
-image=recoil-build-amd64-$OS:latest
-if [[ -z "$(docker images -q $image 2> /dev/null)" ]]; then
-  image=ghcr.io/beyond-all-reason/recoil-build-amd64-$OS:latest
-  docker pull $image
+if [[ "$OS" == "arm64-linux" ]]; then
+  image=recoil-build-arm64-linux:latest
+  if [[ -z "$(docker images -q $image 2> /dev/null)" ]]; then
+    image=ghcr.io/beyond-all-reason/recoil-build-arm64-linux:latest
+    docker pull $image
+  fi
+else
+  image=recoil-build-amd64-$OS:latest
+  if [[ -z "$(docker images -q $image 2> /dev/null)" ]]; then
+    image=ghcr.io/beyond-all-reason/recoil-build-amd64-$OS:latest
+    docker pull $image
+  fi
 fi
 
 docker run -it --rm \
