@@ -42,12 +42,23 @@ endif()
 
 # set some internal vars
 
+# Only warn about unexpected custom flags, not our deliberate architecture-specific ones
 if (NOT "${CMAKE_C_FLAGS}" STREQUAL "")
-	message(WARNING "Using custom C_FLAGS: ${CMAKE_C_FLAGS} this build will very likely not sync in online mode!")
+	# Check if these are our expected ARM64 flags
+	if ((CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64") AND ("${CMAKE_C_FLAGS}" MATCHES "armv8-a" OR "${CMAKE_C_FLAGS}" MATCHES "mcpu=generic"))
+		message(STATUS "Using ARM64-specific C_FLAGS: ${CMAKE_C_FLAGS}")
+	else()
+		message(WARNING "Using custom C_FLAGS: ${CMAKE_C_FLAGS} this build will very likely not sync in online mode!")
+	endif()
 endif()
 
 if (NOT "${CMAKE_CXX_FLAGS}" STREQUAL "")
-	message(WARNING "Using custom CXX_FLAGS: ${CMAKE_CXX_FLAGS} this build will very likely not sync in online mode!")
+	# Check if these are our expected ARM64 flags  
+	if ((CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64") AND ("${CMAKE_CXX_FLAGS}" MATCHES "armv8-a" OR "${CMAKE_CXX_FLAGS}" MATCHES "mcpu=generic"))
+		message(STATUS "Using ARM64-specific CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+	else()
+		message(WARNING "Using custom CXX_FLAGS: ${CMAKE_CXX_FLAGS} this build will very likely not sync in online mode!")
+	endif()
 endif()
 
 set (CUSTOM_COMPILER_DEFINITIONS "" CACHE STRING "Custom flags can be defined here")
